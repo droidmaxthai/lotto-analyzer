@@ -1,1 +1,767 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เครื่องมือวิเคราะห์สถิติหวย By Trademaxthai Team</title>
 
+    <!-- ✅ โหลด Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+    <!-- ✅ โหลด Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- ✅ Custom CSS -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Sarabun', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+    </style>
+
+    <!-- ✅ โค้ด JavaScript ที่เขียนเอง -->
+    <script>
+        function saveToCSV() {
+            const input = document.getElementById('inputData').value;
+            const lines = input.split('\n')
+                .map(line => line.trim())
+                .filter(line => /^\d{2}$/.test(line));
+
+            if (lines.length === 0) {
+                alert("ไม่มีข้อมูลที่สามารถบันทึกได้");
+                return;
+            }
+
+            const csvContent = "data:text/csv;charset=utf-8," + lines.join("\n");
+
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const filename = `คำนวณหวยเลขท้าย 2 ตัว_${yyyy}-${mm}-${dd}.csv`;
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</head>
+
+
+<body class="bg-gradient-to-br from-purple-50 to-blue-50 min-h-screen">
+    <div class="max-w-6xl mx-auto p-6">
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3">
+                    <svg class="w-10 h-10 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    เครื่องมือวิเคราะห์สถิติหวย
+                </h1>
+                <p class="text-purple-700 text-xl font-semibold mb-1">By Trademaxthai Team</p>
+                <p class="text-gray-600 text-lg">Multiple Linear Regression Analysis</p>
+            </div>
+
+            <!-- Input Section -->
+            <div class="mb-8">
+                <label class="block text-lg font-semibold text-gray-700 mb-3">
+                    📊 ใส่ข้อมูลเลขท้าย 2 ตัว (พิมพ์ครบ 2 หลักจะขึ้นบรรทัดใหม่อัตโนมัติ)
+                </label>
+                <textarea
+                    id="inputData"
+    placeholder="พิมพ์เลข 2 ตัว ระบบจะขึ้นบรรทัดใหม่อัตโนมัติ&#10;ตัวอย่าง: 01 → Enter → 23 → Enter"
+    class="w-full h-32 p-4 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none font-mono text-lg tracking-wider"
+    style="line-height: 1.8;"
+></textarea>
+<div class="flex items-center gap-3 mt-4">
+    <span class="text-lg font-semibold text-gray-700">📂 เลือกไฟล์ .csv</span>
+    
+</div>
+<input type="file" id="csvFileInput" accept=".csv" class="bg-gradient-to-r from-gray-600 to-gray-800 text-white px-8 py-3 rounded-lg hover:from-gray-700 hover:to-gray-900 transition-all duration-300 font-semibold shadow-lg mt-4">
+                <div class="mt-2 text-sm text-gray-600 flex items-center gap-4 flex-wrap">
+                    <div class="flex items-center gap-1">
+                        <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+                        <span>รองรับเฉพาะตัวเลข 0-9</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="w-3 h-3 bg-blue-500 rounded-full"></span>
+                        <span>ขึ้นบรรทัดใหม่อัตโนมัติเมื่อครบ 2 หลัก</span>
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-4 flex-wrap">
+                    <button
+                        onclick="analyzeData()"
+                        class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 font-semibold shadow-lg"
+                    >
+                        วิเคราะห์ข้อมูล
+                    </button>
+                    <button
+                        onclick="clearData()"
+                        class="bg-gradient-to-r from-red-500 to-red-600 text-white px-8 py-3 rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg flex items-center gap-2"
+                    >
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        ลบข้อมูล
+                    </button>
+                </div>
+
+<button
+    onclick="saveToCSV()"
+    class="bg-gradient-to-r from-green-600 to-lime-600 text-white px-8 py-3 rounded-lg hover:from-green-700 hover:to-lime-700 transition-all duration-300 font-semibold shadow-lg mt-8"
+>
+    💾 บันทึกเป็นไฟล์ CSV
+</button>
+
+            </div>
+
+            <!-- Prediction Results -->
+            <div id="predictionSection" class="hidden bg-gradient-to-r from-green-100 to-emerald-100 p-6 rounded-xl mb-8 border-l-4 border-green-500">
+                <h3 class="text-2xl font-bold text-green-800 mb-2 flex items-center gap-2">
+                    📈 การทำนาย
+                </h3>
+                <div class="text-center">
+                    <div id="predictionResult" class="text-5xl font-bold text-green-700 mb-2">--</div>
+                    <p class="text-green-600 text-lg">เลขท้าย 2 ตัวที่คาดการณ์</p>
+                </div>
+                <div class="mt-4 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <div class="flex items-center gap-2 text-yellow-700">
+                        <span class="font-semibold">⚠️ คำเตือน:</span>
+                    </div>
+                    <p class="text-yellow-700 text-sm mt-1">
+                        การทำนายนี้ใช้เพื่อการศึกษาเท่านั้น ไม่ควรนำไปใช้เป็นหลักในการซื้อหวย
+                    </p>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div id="statisticsSection" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-blue-50 p-6 rounded-xl border border-blue-200">
+                    <h4 class="font-semibold text-blue-800 mb-2">จำนวนข้อมูล</h4>
+                    <p id="totalCount" class="text-3xl font-bold text-blue-600">0</p>
+                </div>
+                <div class="bg-purple-50 p-6 rounded-xl border border-purple-200">
+                    <h4 class="font-semibold text-purple-800 mb-2">ค่าเฉลี่ย</h4>
+                    <p id="meanValue" class="text-3xl font-bold text-purple-600">0</p>
+                </div>
+                <div class="bg-orange-50 p-6 rounded-xl border border-orange-200">
+                    <h4 class="font-semibold text-orange-800 mb-2">ส่วนเบี่ยงเบนมาตรฐาน</h4>
+                    <p id="stdValue" class="text-3xl font-bold text-orange-600">0</p>
+                </div>
+                <div class="bg-green-50 p-6 rounded-xl border border-green-200">
+                    <h4 class="font-semibold text-green-800 mb-2">เลขที่ออกบ่อยสุด</h4>
+                    <p id="mostFrequent" class="text-3xl font-bold text-green-600">--</p>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div id="chartsSection" class="hidden space-y-8">
+                <!-- Line Chart -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        📈 กราฟแนวโน้มเลขที่ออก
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Frequency Chart -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        📊 ความถี่ของเลขที่ออก
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="frequencyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Most Frequent Numbers -->
+            <div id="frequentNumbersSection" class="hidden mt-8 bg-gray-50 p-6 rounded-xl border border-gray-200">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">เลขที่ออกบ่อยสุด Top 10</h3>
+                <div id="frequentNumbers" class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Regression Model Info -->
+            <div id="modelInfoSection" class="hidden mt-8 bg-indigo-50 p-6 rounded-xl border border-indigo-200">
+                <h3 class="text-xl font-bold text-indigo-800 mb-4">ข้อมูลโมเดล Multiple Linear Regression</h3>
+                <div id="regressionEquation" class="font-mono text-sm">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let trendChart = null;
+        let frequencyChart = null;
+
+        // Handle input auto-formatting
+        document.getElementById('inputData').addEventListener('input', function(e) {
+            let value = e.target.value;
+            
+            // Remove non-digits except newlines
+            value = value.replace(/[^\d\n]/g, '');
+            
+            const lines = value.split('\n');
+            const processedLines = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                if (line.length > 2) {
+                    const chunks = line.match(/.{1,2}/g) || [];
+                    processedLines.push(...chunks);
+                } else {
+                    processedLines.push(line);
+                }
+            }
+            
+            let result = '';
+            for (let i = 0; i < processedLines.length; i++) {
+                if (i > 0) result += '\n';
+                result += processedLines[i];
+            }
+            
+            const lastLine = processedLines[processedLines.length - 1] || '';
+            if (lastLine.length === 2 && value.length > this.oldValue?.length) {
+                result += '\n';
+            }
+            
+            this.value = result;
+            this.oldValue = result;
+        });
+
+        // Clear data function
+        function clearData() {
+            if (confirm('คุณต้องการลบข้อมูลทั้งหมดใช่หรือไม่?')) {
+                // Clear input
+                document.getElementById('inputData').value = '';
+                
+                // Hide all sections
+                document.getElementById('predictionSection').classList.add('hidden');
+                document.getElementById('statisticsSection').classList.add('hidden');
+                document.getElementById('chartsSection').classList.add('hidden');
+                document.getElementById('frequentNumbersSection').classList.add('hidden');
+                document.getElementById('modelInfoSection').classList.add('hidden');
+                
+                // Destroy charts
+                if (trendChart) {
+                    trendChart.destroy();
+                    trendChart = null;
+                }
+                if (frequencyChart) {
+                    frequencyChart.destroy();
+                    frequencyChart = null;
+                }
+                
+                // Reset values
+                document.getElementById('totalCount').textContent = '0';
+                document.getElementById('meanValue').textContent = '0';
+                document.getElementById('stdValue').textContent = '0';
+                document.getElementById('mostFrequent').textContent = '--';
+                document.getElementById('predictionResult').textContent = '--';
+                
+                // Show success message
+                alert('ลบข้อมูลเรียบร้อยแล้ว');
+            }
+        }
+
+        function parseData(data) {
+            return data.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length === 2 && /^\d{2}$/.test(line))
+                .map(Number);
+        }
+
+        function calculateStatistics(numbers) {
+            const frequency = {};
+            numbers.forEach(num => {
+                const key = num.toString().padStart(2, '0');
+                frequency[key] = (frequency[key] || 0) + 1;
+            });
+
+            const mean = numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
+            const variance = numbers.reduce((sum, num) => sum + Math.pow(num - mean, 2), 0) / numbers.length;
+            const stdDev = Math.sqrt(variance);
+
+            const sortedFreq = Object.entries(frequency)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 10);
+
+            return {
+                total: numbers.length,
+                mean: mean.toFixed(2),
+                stdDev: stdDev.toFixed(2),
+                mostFrequent: sortedFreq,
+                frequency
+            };
+        }
+
+        function multipleLinearRegression(X, y) {
+            try {
+                if (X.length === 0 || y.length === 0 || X.length !== y.length) {
+                    return null;
+                }
+
+                const n = X.length;
+                const numFeatures = X[0].length;
+                const coefficients = [0];
+                
+                const yMean = y.reduce((sum, val) => sum + val, 0) / n;
+                coefficients[0] = yMean;
+                
+                for (let feature = 0; feature < numFeatures; feature++) {
+                    const xValues = X.map(row => row[feature]);
+                    const xMean = xValues.reduce((sum, val) => sum + val, 0) / n;
+                    
+                    let numerator = 0;
+                    let denominator = 0;
+                    
+                    for (let i = 0; i < n; i++) {
+                        const xDiff = xValues[i] - xMean;
+                        const yDiff = y[i] - yMean;
+                        numerator += xDiff * yDiff;
+                        denominator += xDiff * xDiff;
+                    }
+                    
+                    const coefficient = denominator !== 0 ? numerator / denominator : 0;
+                    coefficients.push(coefficient * 0.1);
+                }
+                
+                return coefficients;
+            } catch (error) {
+                console.error('Regression calculation error:', error);
+                return [50, 0.1, 0.1, 0.1];
+            }
+        }
+
+        function prepareRegressionData(numbers, lookback = 3) {
+            const features = [];
+            const targets = [];
+            
+            for (let i = lookback; i < numbers.length; i++) {
+                const feature = [];
+                for (let j = 1; j <= lookback; j++) {
+                    feature.push(numbers[i - j]);
+                }
+                features.push(feature);
+                targets.push(numbers[i]);
+            }
+            
+            return { features, targets };
+        }
+
+        function predictNext(model, lastNumbers, lookback = 3) {
+            if (!model || lastNumbers.length < lookback) {
+                return Math.round(lastNumbers.reduce((sum, num) => sum + num, 0) / lastNumbers.length);
+            }
+            
+            try {
+                let prediction = model[0];
+                
+                for (let i = 1; i <= lookback && i < model.length; i++) {
+                    const index = lastNumbers.length - i;
+                    if (index >= 0) {
+                        prediction += model[i] * lastNumbers[index];
+                    }
+                }
+                
+                prediction = Math.max(0, Math.min(99, Math.round(prediction)));
+                return prediction;
+            } catch (error) {
+                console.error('Prediction error:', error);
+                return Math.round(lastNumbers.slice(-3).reduce((sum, num) => sum + num, 0) / 3);
+            }
+        }
+
+        function analyzeData() {
+            try {
+                const inputData = document.getElementById('inputData').value;
+                const numbers = parseData(inputData);
+                
+                if (numbers.length < 5) {
+                    alert('กรุณาใส่ข้อมูลอย่างน้อย 5 รายการ');
+                    return;
+                }
+
+                // Calculate statistics
+                const stats = calculateStatistics(numbers);
+                
+                // Update statistics display
+                document.getElementById('totalCount').textContent = stats.total;
+                document.getElementById('meanValue').textContent = stats.mean;
+                document.getElementById('stdValue').textContent = stats.stdDev;
+                document.getElementById('mostFrequent').textContent = stats.mostFrequent[0] ? stats.mostFrequent[0][0] : 'N/A';
+                
+                // Show statistics section
+                document.getElementById('statisticsSection').classList.remove('hidden');
+
+                // Create regression model
+                const { features, targets } = prepareRegressionData(numbers, 3);
+                let prediction = null;
+                let regressionModel = null;
+
+                if (features.length > 0 && targets.length > 0) {
+                    regressionModel = multipleLinearRegression(features, targets);
+                    if (regressionModel && regressionModel.length > 0) {
+                        prediction = predictNext(regressionModel, numbers, 3);
+                    } else {
+                        const lastThree = numbers.slice(-3);
+                        prediction = Math.round(lastThree.reduce((sum, num) => sum + num, 0) / 3);
+                    }
+                } else {
+                    const avg = Math.round(numbers.reduce((sum, num) => sum + num, 0) / numbers.length);
+                    prediction = Math.max(0, Math.min(99, avg));
+                }
+
+                // Show prediction
+                if (prediction !== null && prediction !== undefined) {
+                    document.getElementById('predictionResult').textContent = prediction.toString().padStart(2, '0');
+                    document.getElementById('predictionSection').classList.remove('hidden');
+                }
+
+                // Create charts
+                createTrendChart(numbers, regressionModel);
+                createFrequencyChart(stats.frequency);
+                
+                // Show charts section
+                document.getElementById('chartsSection').classList.remove('hidden');
+
+                // Show frequent numbers
+                showFrequentNumbers(stats.mostFrequent);
+                document.getElementById('frequentNumbersSection').classList.remove('hidden');
+
+                // Show regression model info
+                if (regressionModel) {
+                    showRegressionModel(regressionModel);
+                    document.getElementById('modelInfoSection').classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error('Analysis error:', error);
+                alert('เกิดข้อผิดพลาดในการประมวลผลข้อมูล กรุณาตรวจสอบรูปแบบข้อมูล');
+            }
+        }
+
+        function createTrendChart(numbers, model) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+
+            // Prepare actual data
+            const labels = numbers.map((_, index) => index + 1);
+            const actualData = numbers;
+
+            // Calculate average line
+            const average = numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
+            const averageData = new Array(numbers.length).fill(average);
+
+            // Prepare predicted data if model exists
+            let predictedData = [];
+            if (model && numbers.length > 3) {
+                for (let i = 3; i < numbers.length; i++) {
+                    const pred = predictNext(model, numbers.slice(0, i + 1), 3);
+                    predictedData.push(pred);
+                }
+                // Fill beginning with null values
+                predictedData = [null, null, null, ...predictedData];
+            }
+
+            const datasets = [{
+                label: 'เลขที่ออกจริง',
+                data: actualData,
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                pointBackgroundColor: 'rgb(59, 130, 246)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4
+            }, {
+                label: 'ค่าเฉลี่ย',
+                data: averageData,
+                borderColor: 'rgb(34, 197, 94)',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false,
+                pointRadius: 0,
+                tension: 0
+            }];
+
+            // Add prediction line if available
+            if (predictedData.length > 0 && model) {
+                datasets.push({
+                    label: 'ค่าทำนาย',
+                    data: predictedData,
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 2,
+                    borderDash: [10, 5],
+                    fill: false,
+                    pointBackgroundColor: 'rgb(239, 68, 68)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 3,
+                    tension: 0.4
+                });
+            }
+
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'งวดที่',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'เลข 2 ตัว',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            min: 0,
+                            max: 99,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                stepSize: 25
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createFrequencyChart(frequency) {
+            const ctx = document.getElementById('frequencyChart').getContext('2d');
+            
+            if (frequencyChart) {
+                frequencyChart.destroy();
+            }
+
+            const sortedData = Object.entries(frequency)
+                .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+                .map(([number, count]) => ({ number, count }));
+
+            frequencyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedData.map(item => item.number),
+                    datasets: [{
+                        label: 'ความถี่',
+                        data: sortedData.map(item => item.count),
+                        backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'เลข 2 ตัว'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'ความถี่'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function showFrequentNumbers(mostFrequent) {
+            const container = document.getElementById('frequentNumbers');
+            container.innerHTML = '';
+            
+            mostFrequent.forEach(([number, count], index) => {
+                const div = document.createElement('div');
+                div.className = 'bg-white p-4 rounded-lg text-center border border-gray-200';
+                div.innerHTML = `
+                    <div class="text-2xl font-bold text-blue-600">${number}</div>
+                    <div class="text-sm text-gray-600">${count} ครั้ง</div>
+                    <div class="text-xs text-gray-500">อันดับ ${index + 1}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function showRegressionModel(model) {
+            const container = document.getElementById('regressionEquation');
+            let equation = `<p class="mb-2"><strong>สมการ:</strong> y = ${model[0].toFixed(4)}`;
+            
+            for (let i = 1; i < model.length; i++) {
+                const sign = model[i] >= 0 ? '+' : '';
+                equation += ` ${sign}${model[i].toFixed(4)}x${i}`;
+            }
+            equation += '</p>';
+            equation += '<p class="text-indigo-600">โดย x1, x2, x3 คือ เลขที่ออกในงวด 1, 2, 3 งวดก่อนหน้า</p>';
+            
+            container.innerHTML = equation;
+        }
+
+        // Auto-analyze on page load
+        window.addEventListener('load', function() {
+            analyzeData();
+        });
+    
+function saveToCSV() {
+    const input = document.getElementById('inputData').value;
+    const lines = input.split('\n')
+        .map(line => line.trim())
+        .filter(line => /^\d{2}$/.test(line));
+
+    if (lines.length === 0) {
+        alert("ไม่มีข้อมูลที่สามารถบันทึกได้");
+        return;
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8," + lines.join("\n");
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const filename = `คำนวณหวยเลขท้าย 2 ตัว_${yyyy}-${mm}-${dd}.csv`;
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function loadCSV() {
+    const fileInput = document.getElementById('csvFileInput');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("กรุณาเลือกไฟล์ CSV ก่อน");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const text = event.target.result;
+        const lines = text.split("\n").map(line => line.trim());
+
+        let extractedNumbers = [];
+        lines.forEach(line => {
+            const values = line.split(",");
+            if (values.length > 0 && /^\d{2}$/.test(values[0])) {
+                extractedNumbers.push(values[0]);
+            }
+        });
+
+        if (extractedNumbers.length === 0) {
+            alert("ไม่พบตัวเลขที่ถูกต้องในคอลัมน์ A");
+            return;
+        }
+
+        document.getElementById('inputData').value = extractedNumbers.join("\n");
+        alert("นำเข้าข้อมูลจาก CSV สำเร็จ!");
+    };
+
+    reader.readAsText(file);
+}
+
+document.getElementById('csvFileInput').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split("\n").map(line => line.trim());
+
+        let extractedNumbers = [];
+        lines.forEach(line => {
+            const values = line.split(",");
+            if (values.length > 0 && /^\d{2}$/.test(values[0])) {
+                extractedNumbers.push(values[0]);
+            }
+        });
+
+        if (extractedNumbers.length === 0) {
+            alert("ไม่พบตัวเลขที่ถูกต้องในคอลัมน์ A");
+            return;
+        }
+
+        document.getElementById('inputData').value = extractedNumbers.join("\n");
+        alert("โหลดข้อมูลสำเร็จ!");
+    };
+
+    reader.readAsText(file);
+});
+
+</script>
+</body>
+</html>
